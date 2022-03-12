@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/user"
+	"strings"
 	"sync"
 	"time"
 
@@ -35,6 +36,8 @@ var (
 	dump1090Directory = kingpin.Flag("dump1090.directory",
 		`Directory containing dump1090 JSON files (e.g. /run/dump1090). Either dump1090.address or dump1090.directory must be supplied`).
 		String()
+	compassPointStr = kingpin.Flag("compass.points", "Compass points.").Default("N,NE,E,SE,S,SW,W,NW").String()
+	compassPoints   []string
 
 	logger     log.Logger
 	myLocation osgridref.LatLon
@@ -71,7 +74,7 @@ func NewExporter() *Exporter {
 		maxDistance: prometheus.NewDesc(
 			prometheus.BuildFQName(namespace, "aircraft", "max_distance"),
 			"Maximum distance (meters)",
-			nil,
+			[]string{"direction"},
 			nil),
 	}
 }
@@ -106,27 +109,30 @@ func (e *Exporter) collect(ch chan<- prometheus.Metric) error {
 	ch <- prometheus.MustNewConstMetric(e.aircraftCount, prometheus.GaugeValue, float64(havePosition), "true")
 	ch <- prometheus.MustNewConstMetric(e.aircraftCount, prometheus.GaugeValue, float64(len(aircraft.Aircraft)-havePosition), "false")
 	ch <- prometheus.MustNewConstMetric(e.messageCount, prometheus.CounterValue, float64(aircraft.Messages))
-	ch <- prometheus.MustNewConstMetric(e.timestamp, prometheus.CounterValue, float64(aircraft.Now))
+	ch <- prometheus.MustNewConstMetric(e.timestamp, prometheus.CounterValue, aircraft.Now)
 
 	// Now calculate distances from us, if possible.
 	if receiver.Lat != 0 || receiver.Lon != 0 {
 		start := time.Now()
 		here := osgridref.LatLon{Lat: receiver.Lat, Lon: receiver.Lon}
-		maxDistance := 0.0
+		maxDistances := make([]float64, len(compassPoints))
 
 		for _, a := range aircraft.Aircraft {
 			if a.Lat != 0 || a.Lon != 0 {
 				d := here.DistanceTo(osgridref.LatLon{Lat: a.Lat, Lon: a.Lon})
 				// - Distance in naut miles:N fmt.Println(d / 1852)
-				if d > maxDistance {
-					maxDistance = d
+				s := sector(len(compassPoints), int(here.InitialBearingTo(osgridref.LatLon{Lat: a.Lat, Lon: a.Lon})))
+				if d > maxDistances[s] {
+					maxDistances[s] = d
 				}
 			}
 		}
 
-		level.Debug(logger).Log("calcs", havePosition, "time", time.Since(start))
+		for i := range maxDistances {
+			ch <- prometheus.MustNewConstMetric(e.maxDistance, prometheus.GaugeValue, maxDistances[i], compassPoints[i])
+		}
 
-		ch <- prometheus.MustNewConstMetric(e.maxDistance, prometheus.GaugeValue, maxDistance)
+		level.Debug(logger).Log("calcs", havePosition, "time", time.Since(start))
 	}
 
 	return nil
@@ -185,7 +191,7 @@ func get(file string, obj interface{}) error {
 		r, err = os.Open(*dump1090Directory + "/" + file)
 	} else {
 		var resp *http.Response
-		resp, err = http.Get(*dump1090Address)
+		resp, err = http.Get(*dump1090Address + "/" + file)
 		if err == nil {
 			r = resp.Body
 		}
@@ -216,6 +222,9 @@ func main() {
 	logger = promlog.New(promlogConfig)
 	level.Info(logger).Log("msg", "Starting node_exporter", "version", version.Info())
 	level.Info(logger).Log("msg", "Build context", "build_context", version.BuildContext())
+
+	compassPoints = strings.Split(*compassPointStr, ",")
+	level.Info(logger).Log("compassPoints", *compassPointStr)
 
 	if user, err := user.Current(); err == nil && user.Uid == "0" {
 		level.Warn(logger).Log("msg", "Exporter is running as root user. This exporter is designed to run as unprivileged user, root is not required.")
