@@ -28,8 +28,12 @@ const (
 )
 
 var (
-	listenAddress   = kingpin.Flag("telemetry.address", "Address on which to expose metrics.").Default(":9799").String()
-	metricsEndpoint = kingpin.Flag("telemetry.endpoint", "Path under which to expose metrics.").Default("/metrics").String()
+	listenAddress          = kingpin.Flag("web.listen-address", "Address on which to expose metrics.").Default(":9799").String()
+	metricsEndpoint        = kingpin.Flag("web.telemetry-path", "Path under which to expose metrics.").Default("/metrics").String()
+	disableExporterMetrics = kingpin.Flag(
+		"web.disable-exporter-metrics",
+		"Exclude metrics about the exporter itself (promhttp_*, process_*, go_*).",
+	).Bool()
 	dump1090Address = kingpin.Flag("dump1090.address",
 		`Address of dump1090 service, e.g. http://localhost:80/dump1090. Either dump1090.address or dump1090.directory must be supplied`).
 		String()
@@ -171,8 +175,11 @@ type Receiver struct {
 }
 
 func fetchFlights() (Aircraft, Receiver, error) {
-	var aircraft Aircraft
-	var receiver Receiver
+	var (
+		aircraft Aircraft
+		receiver Receiver
+	)
+
 	err := get("aircraft.json", &aircraft)
 	if err == nil {
 		err = get("receiver.json", &receiver)
@@ -198,6 +205,7 @@ func get(file string, obj interface{}) error {
 	}
 
 	if err != nil {
+		level.Warn(logger).Log("file", file, "error", err)
 		return err
 	}
 
@@ -235,10 +243,17 @@ func main() {
 	}
 
 	exporter := NewExporter()
-	prometheus.MustRegister(exporter)
-	prometheus.MustRegister(version.NewCollector("dump1090_exporter"))
+	var registry = prometheus.DefaultRegisterer
+	var gatherer = prometheus.DefaultGatherer
+	if *disableExporterMetrics {
+		reg := prometheus.NewRegistry()
+		registry = reg
+		gatherer = reg
+	}
+	registry.MustRegister(exporter)
+	registry.MustRegister(version.NewCollector("dump1090_exporter"))
 
-	http.Handle(*metricsEndpoint, promhttp.Handler())
+	http.Handle(*metricsEndpoint, promhttp.HandlerFor(gatherer, promhttp.HandlerOpts{}))
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`
 <html>
