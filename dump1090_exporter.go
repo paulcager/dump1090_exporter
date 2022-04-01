@@ -40,7 +40,8 @@ var (
 	dump1090Directory = kingpin.Flag("dump1090.directory",
 		`Directory containing dump1090 JSON files (e.g. /run/dump1090). Either dump1090.address or dump1090.directory must be supplied`).
 		String()
-	compassPointStr = kingpin.Flag("compass.points", "Compass points.").Default("N,NE,E,SE,S,SW,W,NW").String()
+	//compassPointStr = kingpin.Flag("compass.points", "Compass points.").Default("N,NE,E,SE,S,SW,W,NW").String()
+	compassPointStr = kingpin.Flag("compass.points", "Compass points.").Default("000,045,090,135,180,225,270,315").String()
 	compassPoints   []string
 
 	logger     log.Logger
@@ -63,7 +64,7 @@ func NewExporter() *Exporter {
 		aircraftCount: prometheus.NewDesc(
 			prometheus.BuildFQName(namespace, "aircraft", "count"),
 			"Number of aircraft in view",
-			[]string{"with_position"},
+			[]string{"with_position", "direction"},
 			nil),
 		messageCount: prometheus.NewDesc(
 			prometheus.BuildFQName(namespace, "aircraft", "messages"),
@@ -85,6 +86,9 @@ func NewExporter() *Exporter {
 
 func (e *Exporter) Describe(ch chan<- *prometheus.Desc) {
 	ch <- e.aircraftCount
+	ch <- e.messageCount
+	ch <- e.timestamp
+	ch <- e.maxDistance
 }
 
 func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
@@ -110,8 +114,6 @@ func (e *Exporter) collect(ch chan<- prometheus.Metric) error {
 		}
 	}
 
-	ch <- prometheus.MustNewConstMetric(e.aircraftCount, prometheus.GaugeValue, float64(havePosition), "true")
-	ch <- prometheus.MustNewConstMetric(e.aircraftCount, prometheus.GaugeValue, float64(len(aircraft.Aircraft)-havePosition), "false")
 	ch <- prometheus.MustNewConstMetric(e.messageCount, prometheus.CounterValue, float64(aircraft.Messages))
 	ch <- prometheus.MustNewConstMetric(e.timestamp, prometheus.CounterValue, aircraft.Now)
 
@@ -120,21 +122,28 @@ func (e *Exporter) collect(ch chan<- prometheus.Metric) error {
 		start := time.Now()
 		here := osgridref.LatLon{Lat: receiver.Lat, Lon: receiver.Lon}
 		maxDistances := make([]float64, len(compassPoints))
+		counts := make([]float64, len(compassPoints))
+		withoutPosition := 0
 
 		for _, a := range aircraft.Aircraft {
 			if a.Lat != 0 || a.Lon != 0 {
 				d := here.DistanceTo(osgridref.LatLon{Lat: a.Lat, Lon: a.Lon})
 				// - Distance in naut miles:N fmt.Println(d / 1852)
 				s := sector(len(compassPoints), int(here.InitialBearingTo(osgridref.LatLon{Lat: a.Lat, Lon: a.Lon})))
+				counts[s]++
 				if d > maxDistances[s] {
 					maxDistances[s] = d
 				}
+			} else {
+				withoutPosition++
 			}
 		}
 
 		for i := range maxDistances {
 			ch <- prometheus.MustNewConstMetric(e.maxDistance, prometheus.GaugeValue, maxDistances[i], compassPoints[i])
+			ch <- prometheus.MustNewConstMetric(e.aircraftCount, prometheus.GaugeValue, counts[i], "true", compassPoints[i])
 		}
+		ch <- prometheus.MustNewConstMetric(e.aircraftCount, prometheus.GaugeValue, float64(withoutPosition), "false", "")
 
 		level.Debug(logger).Log("calcs", havePosition, "time", time.Since(start))
 	}
