@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/kr/pretty"
 	"io"
 	stdlog "log"
@@ -35,17 +36,16 @@ var (
 		"Exclude metrics about the exporter itself (promhttp_*, process_*, go_*).",
 	).Bool()
 	dump1090Address = kingpin.Flag("dump1090.address",
-		`Address of dump1090 service, e.g. http://localhost:80/dump1090. Either dump1090.address or dump1090.directory must be supplied`).
+		`Address of dump1090 service, e.g. http://localhost:80/dump1090/data/. Either dump1090.address or dump1090.files must be supplied`).
 		String()
-	dump1090Directory = kingpin.Flag("dump1090.directory",
-		`Directory containing dump1090 JSON files (e.g. /run/dump1090). Either dump1090.address or dump1090.directory must be supplied`).
+	dump1090Files = kingpin.Flag("dump1090.files",
+		`Location of dump1090 JSON files (e.g. /run/dump1090/%s or /dev/shm/rbfeeder_%s). Either dump1090.address or dump1090.files must be supplied`).
 		String()
 	//compassPointStr = kingpin.Flag("compass.points", "Compass points.").Default("N,NE,E,SE,S,SW,W,NW").String()
 	compassPointStr = kingpin.Flag("compass.points", "Compass points.").Default("000,045,090,135,180,225,270,315").String()
 	compassPoints   []string
 
-	logger     log.Logger
-	myLocation osgridref.LatLon
+	logger log.Logger
 
 	_ = pretty.Print
 )
@@ -164,8 +164,8 @@ type Aircraft struct {
 		SeenPos  float64       `json:"seen_pos,omitempty"`
 		Altitude int           `json:"altitude,omitempty"`
 		VertRate int           `json:"vert_rate,omitempty"`
-		Track    int           `json:"track,omitempty"`
-		Speed    int           `json:"speed,omitempty"`
+		Track    float64       `json:"track,omitempty"`
+		Speed    float64       `json:"speed,omitempty"`
 		Category string        `json:"category,omitempty"`
 		MLAT     []string      `json:"mlat"`
 		TISB     []interface{} `json:"tisb"`
@@ -203,8 +203,9 @@ func get(file string, obj interface{}) error {
 		err error
 	)
 
-	if *dump1090Directory != "" {
-		r, err = os.Open(*dump1090Directory + "/" + file)
+	if *dump1090Files != "" {
+		path := fmt.Sprintf(*dump1090Files, file)
+		r, err = os.Open(path)
 	} else {
 		var resp *http.Response
 		resp, err = http.Get(*dump1090Address + "/" + file)
@@ -247,8 +248,8 @@ func main() {
 		level.Warn(logger).Log("msg", "Exporter is running as root user. This exporter is designed to run as unprivileged user, root is not required.")
 	}
 
-	if (*dump1090Directory == "") == (*dump1090Address == "") {
-		stdlog.Fatal("Must supply exactly one of --dump1090.directory or --dump1090.address")
+	if (*dump1090Files == "") == (*dump1090Address == "") {
+		stdlog.Fatal("Must supply exactly one of --dump1090.files or --dump1090.address")
 	}
 
 	exporter := NewExporter()

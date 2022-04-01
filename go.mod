@@ -8,8 +8,8 @@ require (
 	github.com/kr/pretty v0.1.0
 	github.com/paulcager/osgridref v1.3.0
 	github.com/prometheus/client_golang v1.12.1
-	github.com/prometheus/common v0.32.1
-	golang.org/x/sys v0.0.0-20220310020820-b874c991c1a5 // indirect
-	google.golang.org/protobuf v1.27.1 // indirect
+	github.com/prometheus/common v0.33.0
+	golang.org/x/sys v0.0.0-20220330033206-e17cdc41300f // indirect
+	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
 )
