@@ -1,4 +1,4 @@
-# dump1090 Power Line Communication Exporter for Prometheus
+# dump1090 Exporter for Prometheus
 
 Exports dump1090 statistics via HTTP for Prometheus.
 

@@ -1,0 +1,15 @@
+[Unit]
+Description=Prometheus exporter for dump1090
+Documentation=https://github.com/paulcager/dump1090_exporter
+
+[Service]
+Restart=always
+User=prometheus
+#EnvironmentFile=/etc/default/
+ExecStart=/usr/local/bin/dump1090_exporter --dump1090.files=/run/dump1090-mutability/%%s --web.disable-exporter-metrics $ARGS
+ExecReload=/bin/kill -HUP $MAINPID
+TimeoutStopSec=20s
+SendSIGKILL=no
+
+[Install]
+WantedBy=multi-user.target

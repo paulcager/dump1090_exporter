@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/kr/pretty"
 	"io"
 	stdlog "log"
 	"net/http"
@@ -15,6 +14,7 @@ import (
 
 	log "github.com/go-kit/log"
 	"github.com/go-kit/log/level"
+	"github.com/kr/pretty"
 	"github.com/paulcager/osgridref"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -227,18 +227,14 @@ func get(file string, obj interface{}) error {
 
 func main() {
 	kingpin.Version(version.Print("dump1090_exporter"))
+	promlogConfig := &promlog.Config{}
+	flag.AddFlags(kingpin.CommandLine, promlogConfig)
 	kingpin.HelpFlag.Short('h')
 	kingpin.CommandLine.UsageWriter(os.Stdout)
 	kingpin.Parse()
 
-	promlogConfig := &promlog.Config{}
-	flag.AddFlags(kingpin.CommandLine, promlogConfig)
-	kingpin.Version(version.Print("node_exporter"))
-	kingpin.CommandLine.UsageWriter(os.Stdout)
-	kingpin.HelpFlag.Short('h')
-	kingpin.Parse()
 	logger = promlog.New(promlogConfig)
-	level.Info(logger).Log("msg", "Starting node_exporter", "version", version.Info())
+	level.Info(logger).Log("msg", "Starting dump1090_exporter", "version", version.Info())
 	level.Info(logger).Log("msg", "Build context", "build_context", version.BuildContext())
 
 	compassPoints = strings.Split(*compassPointStr, ",")
@@ -267,9 +263,9 @@ func main() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`
 <html>
-			<head><title>Node Exporter</title></head>
+			<head><title>Dump1090 Exporter</title></head>
 			<body>
-			<h1>Node Exporter</h1>
+			<h1>Dump1090 Exporter</h1>
 			<p><a href="` + *metricsEndpoint + `">Metrics</a></p>
 			</body>
 </html>
