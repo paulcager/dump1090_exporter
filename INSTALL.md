@@ -28,6 +28,7 @@
 1. **Download Raspberry Pi Imager** from https://www.raspberrypi.com/software/
 
 2. **Choose OS**: Raspberry Pi OS Lite (64-bit recommended for Zero 2 W, 32-bit for original Zero W)
+   - **Note**: Original Pi Zero W is ARMv6 — use 32-bit OS and ARMv6 binaries for node_exporter etc. Pi Zero 2 W is ARMv7 — use 64-bit OS and ARMv7 binaries.
    - For 2025: Use **Bookworm** (current stable release)
    - For compatibility with older guides: Use **Bullseye** (legacy LTS)
 
