@@ -143,6 +143,7 @@ Add these lines:
 # ADS-B Receivers
 192.168.0.25    pi-zero-flights pi-zero-flights.paulcager.org
 192.168.0.27    pi-zero-flights-2 pi-zero-flights-2.paulcager.org
+192.168.0.XX    pi-zero-flights-4 pi-zero-flights-4.paulcager.org
 # Add future receivers here with next available IPs
 
 # Serial Console Monitors (ESP8266)
@@ -584,6 +585,21 @@ scrape_configs:
          - storage:9100
          # ... other hosts ...
 ```
+
+### Docker extra_hosts (Required for hostname resolution)
+
+Prometheus runs inside a Docker container and cannot use the host's `/etc/hosts` directly. Because the ISP router filters DNS responses for local IPs, you must also add new receivers to the `extra_hosts` section of the Prometheus service in `~/git/ha-caddy/docker-compose.yml`:
+
+```yaml
+services:
+  prometheus:
+    extra_hosts:
+      - "pi-zero-flights:192.168.0.25"
+      - "pi-zero-flights-2:192.168.0.27"
+      - "pi-zero-flights-4:192.168.0.XX"  # Add new receiver here
+```
+
+Without this, Prometheus will fail to resolve the hostname and the scrape targets will show as DOWN even though `prometheus.yml` is correct.
 
 **After editing, reload Prometheus:**
 
