@@ -23,8 +23,10 @@ Provides visibility into aircraft tracking performance by exposing metrics about
 
 ### Data Sources
 The exporter supports two modes:
-1. **File-based** (`--dump1090.files`): Read JSON files from filesystem (e.g., `/dev/shm/rbfeeder_%s`)
+1. **File-based** (`--dump1090.files`): Read JSON files from filesystem (e.g., `/run/dump1090-fa/%%s` or `/dev/shm/rbfeeder/%%s`)
 2. **HTTP-based** (`--dump1090.address`): Fetch JSON from dump1090 web interface
+
+**Important**: File-based mode is required for dump1090-fa — the HTTP mode returns HTML rather than JSON. When specifying `--dump1090.files` in a systemd unit file, use `%%s` (double percent) to prevent systemd from expanding `%s` as a unit specifier.
 
 ### Metrics Exposed
 - `dump1090_aircraft_count{with_position,direction}`: Number of aircraft in view, segmented by sector

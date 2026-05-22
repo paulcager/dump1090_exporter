@@ -470,7 +470,7 @@ User=prometheus
 Group=prometheus
 Restart=always
 ExecStart=/usr/local/bin/dump1090_exporter \
-  --dump1090.address=http://localhost:8080 \
+  --dump1090.files=/run/dump1090-fa/%%s \
   --web.disable-exporter-metrics
 ExecReload=/bin/kill -HUP $MAINPID
 TimeoutStopSec=20s
@@ -481,7 +481,13 @@ WantedBy=multi-user.target
 EOF
 ```
 
-**Note**: For dump1090-fa, use `--dump1090.address=http://localhost:8080`. For file-based access (dump1090-mutability), use `--dump1090.files=/run/dump1090-mutability/%s`.
+**Note**: Use `--dump1090.files` with the path to the JSON files:
+- **dump1090-fa**: `--dump1090.files=/run/dump1090-fa/%%s`
+- **dump1090-mutability**: `--dump1090.files=/run/dump1090-mutability/%%s`
+
+The `%%s` double-percent is required to escape the `%s` placeholder from systemd's unit file specifier expansion. Using `%s` directly will cause systemd to expand it incorrectly.
+
+The `--dump1090.address=http://localhost:8080` HTTP mode does not work with dump1090-fa as it returns HTML rather than JSON at that path.
 
 4. **Enable and start**:
 
