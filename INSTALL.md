@@ -326,11 +326,13 @@ sudo nano /etc/default/dump1090-fa
 Key settings:
 
 ```bash
-START_DUMP1090="yes"
-RECEIVER_LATITUDE="your-latitude"   # e.g., 51.5074
-RECEIVER_LONGITUDE="your-longitude" # e.g., -0.1278
-RECEIVER_ALTITUDE="your-altitude-meters"  # e.g., 50
+ENABLED=yes
+RECEIVER_LAT="your-latitude"    # e.g., 51.5074
+RECEIVER_LON="your-longitude"   # e.g., -0.1278
+RECEIVER_ALT="your-altitude-meters"  # e.g., 50
 ```
+
+**Note**: The correct variable names are `RECEIVER_LAT`, `RECEIVER_LON`, and `RECEIVER_ALT` (not `RECEIVER_LATITUDE`, `RECEIVER_LONGITUDE`, or `RECEIVER_ALTITUDE`). Using the wrong names means location is silently omitted from `receiver.json`, causing the exporter to produce no aircraft count or distance metrics.
 
 7. **Reboot to apply udev rules and start dump1090**:
 
